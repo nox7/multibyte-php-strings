@@ -1,7 +1,7 @@
 {
     "name": "nox7/multibyte-strings",
     "type": "library",
-    "license": "The Unlicense",
+    "license": "Unlicense",
     "autoload": {
         "psr-4": {
             "MultiByteString\\": "src/"
