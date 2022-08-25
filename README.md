@@ -2,7 +2,7 @@
 An ongoing helper library to make working with multibyte strings easier in PHP.
 
 ## Purpose
-By default, the majority of PHP functions revolve around byte count instead of character count. If, for example, you want to find the position of a string stub inside a larger string that include multibyte characters (UTF-8), then the returning positions will be incorrect.
+By default, the majority of PHP functions revolve around byte count instead of character count. If, for example, you want to find the position of a string stub inside a larger string that includes multibyte characters (UTF-8), then the returning positions will be incorrect.
 
 ## Usage
 
