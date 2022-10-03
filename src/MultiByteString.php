@@ -52,7 +52,7 @@
 				$startPosition -= $byteDifferenceOfQuery;
 
 				// Get the last match end position to this start position as a stub
-				$thisStub = mb_substr($this->currentString, $lastMatchEndPosition, $startPosition, $this->encoding);
+				$thisStub = mb_substr($this->currentString, $lastMatchEndPosition, ($startPosition - $lastMatchEndPosition), $this->encoding);
 
 				// Get the length difference
 				$stubByteLength = strlen($thisStub);
