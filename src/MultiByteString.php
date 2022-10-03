@@ -37,10 +37,17 @@
 
 			$rawMatches = $matches[0];
 			$lastMatchEndPosition = 0;
+			$nextStartPositionAdjustmentCarryOver = 0;
 
 			// Iterate over each match and push the match backwards by the multibyte / byte difference
 			foreach($rawMatches as $index=>$rawMatch){
 				$startPosition = $rawMatch[1];
+
+				if ($nextStartPositionAdjustmentCarryOver > 0){
+					$startPosition -= $nextStartPositionAdjustmentCarryOver;
+					$nextStartPositionAdjustmentCarryOver = 0;
+				}
+
 				// Push this backwards by the byte difference of the query
 				$startPosition -= $byteDifferenceOfQuery;
 
@@ -51,6 +58,10 @@
 				$stubByteLength = strlen($thisStub);
 				$stubMultiByteLength = mb_strlen($thisStub, $this->encoding);
 				$stubByteDifference = $stubByteLength - $stubMultiByteLength;
+
+				if ($stubByteDifference){
+					$nextStartPositionAdjustmentCarryOver = $stubByteDifference;
+				}
 
 				// Push the start position back by this byte difference
 				$startPosition -= $stubByteDifference;
