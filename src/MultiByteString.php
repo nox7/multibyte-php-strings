@@ -13,6 +13,7 @@
 		}
 
 		public function setEncoding(string $encoding): void{
+			mb_internal_encoding($encoding);
 			$this->encoding = $encoding;
 		}
 
@@ -21,6 +22,16 @@
 		}
 
 		public function findAllOccurrences(string $query): array{
+
+			/**
+			 * Steps
+			 * 1) Use preg_match_all with "u" flag and find all occurrences of the query.
+			 * 2) Iterate over each raw result from preg_match_all and adjust all start positions by
+			 * the current index, plus one, multiplied by the byte difference of the query from strlen and mb_strlen.
+			 * 3) Iterate over each raw result from preg_match_all and begin an accumulator of how many bytes are different
+			 * between strlen and mb_strlen of all characters prior to the match and the previous match's end or the 0th
+			 * string position if the first match.
+			 */
 
 			$byteLengthOfQuery = strlen($query);
 			$multiByteLengthOfQuery = mb_strlen($query, $this->encoding);
@@ -36,42 +47,29 @@
 			);
 
 			$rawMatches = $matches[0];
+
+			foreach($rawMatches as $index=>$match){
+				// +1 on the index here guarantees that if the query has a byte difference,
+				// then it is applied to all results
+				$byteDifferenceOfQueryAtIndex = ( ($index + 1) * $byteDifferenceOfQuery);
+				$rawMatches[$index][1] += $byteDifferenceOfQueryAtIndex;
+			}
+
+			$totalByteDifference = 0;
 			$lastMatchEndPosition = 0;
-			$nextStartPositionAdjustmentCarryOver = 0;
+			foreach($rawMatches as $index=>$match){
+				// Get the previous string from this match
+				$prevString = mb_substr(
+					string: $this->currentString,
+					start:$lastMatchEndPosition,
+					length: ($match[1] - $lastMatchEndPosition),
+					encoding: $this->encoding,
+				);
 
-			// Iterate over each match and push the match backwards by the multibyte / byte difference
-			foreach($rawMatches as $index=>$rawMatch){
-				$startPosition = $rawMatch[1];
-
-				if ($nextStartPositionAdjustmentCarryOver > 0){
-					$startPosition -= $nextStartPositionAdjustmentCarryOver;
-					$nextStartPositionAdjustmentCarryOver = 0;
-				}
-
-				// Push this backwards by the byte difference of the query
-				$startPosition -= $byteDifferenceOfQuery;
-
-				// Get the last match end position to this start position as a stub
-				$thisStub = mb_substr($this->currentString, $lastMatchEndPosition, ($startPosition - $lastMatchEndPosition), $this->encoding);
-
-				// Get the length difference
-				$stubByteLength = strlen($thisStub);
-				$stubMultiByteLength = mb_strlen($thisStub, $this->encoding);
-				$stubByteDifference = $stubByteLength - $stubMultiByteLength;
-
-				if ($stubByteDifference){
-					$nextStartPositionAdjustmentCarryOver = $stubByteDifference;
-				}
-
-				// Push the start position back by this byte difference
-				$startPosition -= $stubByteDifference;
-
-				// Set the last end position as the start position + multibyte length of the query
-				$lastMatchEndPosition = $startPosition + $multiByteLengthOfQuery;
-
-				// Adjust the start position of this match result to be $startPosition
-				$rawMatches[$index][1] = $startPosition;
-
+				$prevStringByteDifference = strlen($prevString) - mb_strlen($prevString, $this->encoding);
+				$totalByteDifference += $prevStringByteDifference;
+				$rawMatches[$index][1] -= $totalByteDifference;
+				$lastMatchEndPosition = $rawMatches[$index][1] + $multiByteLengthOfQuery;
 			}
 
 			$matches[0] = $rawMatches;
@@ -101,14 +99,24 @@
 				}
 
 				// Get the string stub
-				$beforeStub = mb_substr($this->currentString, $beforeStubStartPosition, $beforePaddingSize, $this->encoding);
+				$beforeStub = mb_substr(
+					string: $this->currentString,
+					start: $beforeStubStartPosition,
+					length: $beforePaddingSize,
+					encoding: $this->encoding
+				);
 			}
 
 			$end = $start + $stubMultiByteLength;
 
 			if ($end < $multiByteLengthOfString){
 				if ($end + $paddingSize < $multiByteLengthOfString) {
-					$endStub = mb_substr($this->currentString, $end, $paddingSize, $this->encoding);
+					$endStub = mb_substr(
+						string:$this->currentString,
+						start: $end,
+						length: $paddingSize,
+						encoding: $this->encoding
+					);
 				}else{
 					$endStub = mb_substr(
 						string:$this->currentString,
@@ -121,7 +129,12 @@
 
 			$stubResult = new StubResult();
 			$stubResult->beforeStub = $beforeStub;
-			$stubResult->stub = mb_substr($this->currentString, $start, $stubMultiByteLength, $this->encoding);
+			$stubResult->stub = mb_substr(
+				string: $this->currentString,
+				start: $start,
+				length: $stubMultiByteLength,
+				encoding: $this->encoding
+			);
 			$stubResult->afterStub = $endStub;
 
 			return $stubResult;
