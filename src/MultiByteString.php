@@ -21,120 +21,74 @@
 			return $this->encoding;
 		}
 
+		/**
+		 * @param string $query
+		 * @return FindResult[]
+		 */
 		public function findAllOccurrences(string $query): array{
 
-			/**
-			 * Steps
-			 * 1) Use preg_match_all with "u" flag and find all occurrences of the query.
-			 * 2) Iterate over each raw result from preg_match_all and adjust all start positions by
-			 * the current index, plus one, multiplied by the byte difference of the query from strlen and mb_strlen.
-			 * 3) Iterate over each raw result from preg_match_all and begin an accumulator of how many bytes are different
-			 * between strlen and mb_strlen of all characters prior to the match and the previous match's end or the 0th
-			 * string position if the first match.
-			 */
+			$findResults = [];
+			$buffer = "";
+			$characters = mb_str_split($this->currentString, 1, "UTF-8");
+			$characterLengthOfQuery = mb_strlen($query);
 
-			$byteLengthOfQuery = strlen($query);
-			$multiByteLengthOfQuery = mb_strlen($query, $this->encoding);
-			$byteDifferenceOfQuery = $byteLengthOfQuery - $multiByteLengthOfQuery;
-
-			preg_match_all(
-				pattern:sprintf("/%s/iu",
-					preg_quote(str: $query, delimiter: "/") // Escape the query for preg match
-				),
-				subject: $this->currentString,
-				matches:$matches,
-				flags: PREG_OFFSET_CAPTURE,
-			);
-
-			$rawMatches = $matches[0];
-
-			foreach($rawMatches as $index=>$match){
-				// +1 on the index here guarantees that if the query has a byte difference,
-				// then it is applied to all results
-				$byteDifferenceOfQueryAtIndex = ( ($index + 1) * $byteDifferenceOfQuery);
-				$rawMatches[$index][1] += $byteDifferenceOfQueryAtIndex;
+			foreach($characters as $index=>$char){
+				$buffer .= $char;
+				if (str_contains($buffer, $query)){
+					$sub = mb_substr($buffer, -$characterLengthOfQuery);
+					$result = new FindResult();
+					$result->match = $sub;
+					$result->endCharacterPositionOfMatch = $index;
+					$findResults[] = $result;
+					$buffer = "";
+				}
 			}
 
-			$totalByteDifference = 0;
-			$lastMatchEndPosition = 0;
-			foreach($rawMatches as $index=>$match){
-				// Get the previous string from this match
-				$prevString = mb_substr(
-					string: $this->currentString,
-					start:$lastMatchEndPosition,
-					length: ($match[1] - $lastMatchEndPosition),
-					encoding: $this->encoding,
-				);
-
-				$prevStringByteDifference = strlen($prevString) - mb_strlen($prevString, $this->encoding);
-				$totalByteDifference += $prevStringByteDifference;
-				$rawMatches[$index][1] -= $totalByteDifference;
-				$lastMatchEndPosition = $rawMatches[$index][1] + $multiByteLengthOfQuery;
-			}
-
-			$matches[0] = $rawMatches;
-
-			return $matches;
+			return $findResults;
 		}
 
 		/**
 		 * Fetches a substring with padding of text before and after the start/end substring.
-		 * @param int $start The multibyte start position of the stub
-		 * @param int $stubMultiByteLength The multibyte length of the stub
+		 * @param FindResult $findResult
 		 * @param int $paddingSize The number of full-length characters to get before and after the stub. This is not a byte size, but a number of characters.
 		 */
-		public function getSubStringWithPadding(int $start, int $stubMultiByteLength, int $paddingSize = 35): StubResult{
-			$multiByteLengthOfString = mb_strlen($this->currentString, $this->encoding);
+		public function getSubStringWithPadding(FindResult $findResult, int $paddingSize = 35): StubResult{
+			$currentStringCharacters = mb_str_split($this->currentString, 1, $this->encoding);
+			$characterCountOfFindMatch = mb_strlen($findResult->match);
+			$endArrayPositionOfMatch = $findResult->endCharacterPositionOfMatch;
+			$startArrayPositionOfMatch = $endArrayPositionOfMatch - $characterCountOfFindMatch;
+			$startOfStub = $startArrayPositionOfMatch - $paddingSize;
+			$endOfStub = $endArrayPositionOfMatch + $paddingSize;
+
 			$beforeStub = "";
 			$endStub = "";
 
-			if ($start > 0){
-				$beforeStubStartPosition = $start - $paddingSize;
-				$beforePaddingSize = $paddingSize;
+			if ($startOfStub < 0){
 
-				// Clamp
-				if ($beforeStubStartPosition < 0) {
-					$beforeStubStartPosition = 0;
-					$beforePaddingSize = $start;
+				if ($startArrayPositionOfMatch > 0){
+					$startOfStub = 0;
 				}
-
-				// Get the string stub
-				$beforeStub = mb_substr(
-					string: $this->currentString,
-					start: $beforeStubStartPosition,
-					length: $beforePaddingSize,
-					encoding: $this->encoding
-				);
 			}
 
-			$end = $start + $stubMultiByteLength;
+			if ($endOfStub > count($currentStringCharacters)){
 
-			if ($end < $multiByteLengthOfString){
-				if ($end + $paddingSize < $multiByteLengthOfString) {
-					$endStub = mb_substr(
-						string:$this->currentString,
-						start: $end,
-						length: $paddingSize,
-						encoding: $this->encoding
-					);
-				}else{
-					$endStub = mb_substr(
-						string:$this->currentString,
-						start: $end,
-						length: null,
-						encoding: $this->encoding
-					);
+				if ($endArrayPositionOfMatch < count($currentStringCharacters)){
+					$endOfStub = count($currentStringCharacters) - 1;
 				}
+
+			}
+
+			for ($i = $startOfStub; $i <= $startArrayPositionOfMatch; $i++){
+				$beforeStub .= $currentStringCharacters[$i];
+			}
+
+			for ($i = ($endArrayPositionOfMatch + 1); $i <= $endOfStub; $i++){
+				$endStub .= $currentStringCharacters[$i];
 			}
 
 			$stubResult = new StubResult();
 			$stubResult->beforeStub = $beforeStub;
-			$stubResult->stub = mb_substr(
-				string: $this->currentString,
-				start: $start,
-				length: $stubMultiByteLength,
-				encoding: $this->encoding
-			);
+			$stubResult->stub = $findResult->match;
 			$stubResult->afterStub = $endStub;
 
 			return $stubResult;

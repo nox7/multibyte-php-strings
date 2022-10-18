@@ -66,16 +66,14 @@
 			HTML;
 
 			$multibyte = new MultiByteString($testString);
-			$matches = $multibyte->findAllOccurrences($query);
+			$findResults = $multibyte->findAllOccurrences($query);
 
-			$stubResult = $multibyte->getSubStringWithPadding(
-				start: $matches[0][0][1],
-				stubMultiByteLength: $queryMultiByteLength,
-			);
+			$lengthOfMatch = mb_strlen($findResults[0]->match);
+			$start = $findResults[0]->endCharacterPositionOfMatch - $lengthOfMatch + 1;
 
 			$multibyte->replaceStub(
-				start: $matches[0][0][1],
-				stubMultiByteLength:$queryMultiByteLength,
+				start: $start,
+				stubMultiByteLength:$lengthOfMatch,
 				replacement:$replacement,
 			);
 
