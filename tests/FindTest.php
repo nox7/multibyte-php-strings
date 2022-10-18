@@ -27,4 +27,27 @@
 				actual:$findResults[0]->endCharacterPositionOfMatch,
 			);
 		}
+
+		public function testGetStubAtStringEdges(): void{
+			$testString = trim(<<<HTML
+			<title></title>
+			HTML);
+
+			// Test beginning edge case
+			$multibyte = new MultiByteString($testString);
+			$findResults = $multibyte->findAllOccurrences("<title>");
+			$this->assertCount(
+				expectedCount: 1,
+				haystack:$findResults,
+			);
+			$multibyte->getSubStringWithPadding($findResults[0]);
+
+			// Test ending edge case
+			$findResults = $multibyte->findAllOccurrences("</title>");
+			$this->assertCount(
+				expectedCount: 1,
+				haystack:$findResults,
+			);
+			$stub = $multibyte->getSubStringWithPadding($findResults[0]);
+		}
 	}

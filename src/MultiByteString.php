@@ -70,20 +70,24 @@
 				}
 			}
 
-			if ($endOfStub > count($currentStringCharacters)){
+			if ($endOfStub > count($currentStringCharacters) - 1){
 
-				if ($endArrayPositionOfMatch < count($currentStringCharacters)){
+				if ($endArrayPositionOfMatch < count($currentStringCharacters) - 1){
 					$endOfStub = count($currentStringCharacters) - 1;
 				}
 
 			}
 
-			for ($i = $startOfStub; $i <= $startArrayPositionOfMatch; $i++){
-				$beforeStub .= $currentStringCharacters[$i];
+			if ($startArrayPositionOfMatch > 0) {
+				for ($i = $startOfStub; $i <= $startArrayPositionOfMatch; $i++) {
+					$beforeStub .= $currentStringCharacters[$i];
+				}
 			}
 
-			for ($i = ($endArrayPositionOfMatch + 1); $i <= $endOfStub; $i++){
-				$endStub .= $currentStringCharacters[$i];
+			if ($endArrayPositionOfMatch < count($currentStringCharacters) - 1) {
+				for ($i = ($endArrayPositionOfMatch + 1); $i <= $endOfStub; $i++) {
+					$endStub .= $currentStringCharacters[$i];
+				}
 			}
 
 			$stubResult = new StubResult();
