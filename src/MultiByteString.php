@@ -25,7 +25,7 @@
 		 * @param string $query
 		 * @return FindResult[]
 		 */
-		public function findAllOccurrences(string $query): array{
+		public function findAllOccurrences(string $query, bool $caseSensitive = true): array{
 
 			$findResults = [];
 			$buffer = "";
@@ -34,7 +34,7 @@
 
 			foreach($characters as $index=>$char){
 				$buffer .= $char;
-				if (str_contains($buffer, $query)){
+				if (($caseSensitive && str_contains($buffer, $query)) || (!$caseSensitive && str_contains(strtolower($buffer), strtolower($query)))){
 					$sub = mb_substr($buffer, -$characterLengthOfQuery);
 					$result = new FindResult();
 					$result->match = $sub;
